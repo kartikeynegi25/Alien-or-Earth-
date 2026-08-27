@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alien or Earth? | ARSET Terminal</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id = "loading-overlay" class="overlay">
+        <div class="loader-text">ESTABLISHING SENSOR UPLINK...</div>
+    </div>
+
+    <header class="hud-header">
+        <div class="stat-box">STREAK: <span id="score-val" class="neon-text">0</span></div>
+        <div class="timer-container">
+            <div id="timer-bar" class="timer-bar"></div>
+            <span id="timer-text" class="timer-text">7s</span>
+        </div>
+        <div class="stat-box">MAX: <span id="high-score-val" class="neon-text">0</span></div>
+    </header>
+
+    <main class="game-board">
+        <div class="image-frame">
+            <img id="game-image" src="" alt="Remote Sensing Feed">
+        </div>
+
+        <div class="clue-box">
+            <span class="label">INTERCEPTED METADATA:</span>
+            <p id="clue-text" class="clue-text">Waiting for telemetry...</p>
+        </div>
+
+        <div class="controls">
+            <button id="btn-earth" class="btn btn-earth">🌍 EARTH</button>
+            <button id="btn-alien" class="btn btn-alien">🪐 ALIEN</button>
+        </div>
+    </main>
+
+    <div id="reveal-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <h2 id="reveal-title">TARGET IDENTIFIED</h2>
+            <div class="arset-flex-box">
+                <h3 id="reveal-sensor" class="neon-text"></h3>
+                <p id="reveal-desc"></p>
+            </div>
+            <button id="btn-next" class="btn btn-next">INITIATE NEXT MISSION ➔</button>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+    
+</body>
+</html>
