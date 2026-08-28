@@ -7,10 +7,34 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    <!-- Start Screen -->
+
+    <div id="home-screen" class="home-screen crt-effect">
+        <img src="https://stardance.hackclub.com/assets/landing/hero/nasa-hero-e6195581.png" class="stardance-bg" alt="Stardance Shuttle">
+
+        <div class="logo-container">
+            <img src="https://www.logo.wine/a/logo/NASA/NASA-Logo.wine.svg" alt="NASA Logo" class="nasa-logo">
+        </div>
+
+        <div class="glitch-title">ALIEN<br>OR<br>EARTH?</div>
+        <p class="subtitle">CLASSIFIED SENSOR TRAINING</p>
+
+        <div class="briefing">
+            <p class="blink-text">> MISSION LAUNCHING...</p>
+            <p>> 7 SECONDS PER SCAN.</p>
+            <p>> IDENTIFY PLANETARY ORIGIN.</p>
+        </div>
+
+        <button id="btn-start" class="btn btn-start">LAUNCH   o➔</button>
+
+        <img id="rocket" src="rocket.png" class="rocket" alt="Launch">
+    </div>
+
     <div id = "loading-overlay" class="overlay">
         <div class="loader-text">ESTABLISHING SENSOR UPLINK...</div>
     </div>
 
+    <!--Main game-->
     <header class="hud-header">
         <div class="stat-box">STREAK: <span id="score-val" class="neon-text">0</span></div>
         <div class="timer-container">
@@ -23,11 +47,6 @@
     <main class="game-board">
         <div class="image-frame">
             <img id="game-image" src="" alt="Remote Sensing Feed">
-        </div>
-
-        <div class="clue-box">
-            <span class="label">INTERCEPTED METADATA:</span>
-            <p id="clue-text" class="clue-text">Waiting for telemetry...</p>
         </div>
 
         <div class="controls">

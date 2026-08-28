@@ -1,9 +1,9 @@
-const QUERY_MATRIX = {
+const searchTerms = {
     earth: [
-        "Landsat false color satellite",
+        "Landsat false color",
         "MODIS thermal anomaly",
-        "Sentinel phytoplankton bloom",
-        "ASTER satellite imagery",
+        "Sentinel phytoplankton",
+        "ASTER satellite",
         "Landsat urban heat island",
         "MODIS wildfire detection",
         "Sentinel flood mapping",
@@ -17,236 +17,199 @@ const QUERY_MATRIX = {
     ]
 };
 
-const cardQueue = [];
+let queue = [];
 let currentCard = null;
 let currentScore = 0;
 let highScore = parseInt(localStorage.getItem('alien_earth_high_score') || '0', 10);
-let timerInterval = null;
+let timer;
 let timeLeft = 7;
-const QUEUE_TARGET_SIZE = 4;
 let isFetching = false;
+let isWaitingForNext = false;
 
-const ui = {
-    image: document.getElementById('game-image'),
-    timerBar: document.getElementById('timer-bar'),
-    timerText: document.getElementById('timer-text'),
-    scoreText: document.getElementById('score-val'),
-    highScoreText: document.getElementById('high-score-val'),
-    clueText: document.getElementById('clue-text'),
-    btnEarth: document.getElementById('btn-earth'),
-    btnAlien: document.getElementById('btn-alien'),
-    btnRestart: document.getElementById('btn-restart'),
-    revealModal: document.getElementById('reveal-modal'),
-    revealTitle: document.getElementById('reveal-title'),
-    revealSensor: document.getElementById('reveal-sensor'),
-    revealDesc: document.getElementById('reveal-desc'),
-    btnNext: document.getElementById('btn-next'),
-    loader: document.getElementById('loading-overlay')
-};
+const homeScreen = document.getElementById('home-screen');
+const btnStart = document.getElementById('btn-start');
+const image = document.getElementById('game-image');
+const timerBar = document.getElementById('timer-bar');
+const timerText = document.getElementById('timer-text');
+const scoreText = document.getElementById('score-val');
+const highScoreText = document.getElementById('high-score-val');
+const btnEarth = document.getElementById('btn-earth');
+const btnAlien = document.getElementById('btn-alien');
+const modal = document.getElementById('reveal-modal');
+const revealTitle = document.getElementById('reveal-title');
+const revealSensor = document.getElementById('reveal-sensor');
+const revealDesc = document.getElementById('reveal-desc');
+const btnNext = document.getElementById('btn-next');
+const loader = document.getElementById('loading-overlay');
+const rocket = document.getElementById('rocket');
 
-async function fetchSingleNASACard(){
+async function fetchImage(){
     const isEarth = Math.random() > 0.5;
-    const pool = isEarth ? QUERY_MATRIX.earth : QUERY_MATRIX.alien;
-    const term = pool[Math.floor(Math.random() * pool.length)];
-
-    console.log(`📡 Ping NASA API for: "${term}"...`);
+    const terms = isEarth ? searchTerms.earth : searchTerms.alien;
+    const query = terms[Math.floor(Math.random() * terms.length)];
+    const randomPage = Math.floor(Math.random() * 5) + 1; 
 
     try{
-        const res = await fetch(`https://images-api.nasa.gov/search?q=${encodeURIComponent(term)}&media_type=image`);
+        const res = await fetch(`https://images-api.nasa.gov/search?q=${encodeURIComponent(query)}&media_type=image&page=${randomPage}`);
         const data = await res.json();
         const items = data?.collection?.items || [];
-        const validItems = items.filter(item => item.links && item.links.length > 0 && item.data && item.data[0]);
 
-        if (!validItems.length){
-            console.warn(`⚠️ No items found for "${term}". Skipping.`);
+        const validItems = items.filter(item => item.links && item.links.length > 0 && item.data && item.data[0]);
+        if (validItems.length === 0){
             return null;
         }
 
         const selected = validItems[Math.floor(Math.random() * validItems.length)];
-        const rawData = selected.data[0];
+        const meta = selected.data[0];
         const imageUrl = selected.links[0].href.replace(/^http:/i, 'https:');
-        const title = rawData.title || "";
-        const description = rawData.description || title;
-        const lowerDesc = description.toLowerCase();
-        if (lowerDesc.includes("portrait") || lowerDesc.includes("personnel") ||  lowerDesc.includes("engineer")) {
-            console.warn("⚠️ Filtered out a photo of a human. Skipping.") ;
+        const title = meta.title || "";
+        const description = meta.description || title;
+
+        const textToCheck = (title + " " + description).toLowerCase();
+
+        const badWords = ["rocket", "launch", "portrait", "team", "engineer", "diagram", "artwork", "illustration", "facility", "telescope", "model", "concept"];
+
+        if (badWords.some(word => textToCheck.includes(word))) {
             return null;
         }
 
-        if(!description || description.length < 20) return null;
-
-        const redactionRegex = /(earth|mars|venus|jupiter|saturn|titan|mercury|landsat|modis|sentinel|hirise|magellan|juno|cassini|sahara|atlantic|pacific|nasa|esa|isro)/gi;
-        const redactedClue = (title + " - " + description.slice(0, 180) + "...")
-            .replace(redactionRegex, "[REDACTED]");
- 
-        console.log(`🖼️ Downloading image: ${imageUrl}`);
-        await preloadImage(imageUrl);
-        console.log(`✅ Image preloaded successfully.`);
+        await new Promise(resolve => {
+            const img = new Image();
+            const timeout = setTimeout(() => resolve(imageUrl), 4000);
+            img.onload = () => { clearTimeout(timeout); resolve(imageUrl);};
+            img.onerror = () => { clearTimeout(timeout); resolve(imageUrl);};
+            img.src = imageUrl;
+        });
 
         return {
-            imageUrl,
-            isEarth,
-            sensor: rawData.secondary_creator || rawData.center + " Archive",
-            title,
-            fullDescription: description
+            imageUrl: imageUrl,
+            isEarth: isEarth,
+            sensor: meta.secondary_creator || meta.center + " Archive",
+            title: title,
+            Description: description
         };
     } catch (err){
-        console.error("Fetch failed, retrying background slot...", err);
+        console.error("NASA API failed", err);
         return null;
     }
 }
 
-function preloadImage(url){
-    return new Promise((resolve, reject) => {
-        const img = new Image();
-
-        const timeout = setTimeout(() => {
-            console.warn("⏱️ Image took too long to load, skipping...");
-            reject(url);
-        }, 5000); // 5 seconds timeout
-
-        img.onload = () => {
-            clearTimeout(timeout);
-            resolve(url);
-        };
-
-        img.onerror = () => {
-            clearTimeout(timeout);
-            console.warn("⚠️ Image failed to load pixels, skipping...");
-            reject(url);
-        };
-        img.src = url;
-    });
-}
-
-async function fillCardQueue(){
-    if (isFetching || cardQueue.length >= QUEUE_TARGET_SIZE) return;
+async function fillQueue(){
+    if (isFetching || queue.length >= 4) return;
     isFetching = true;
 
-    let attempts = 0;
-    const MAX_ATTEMPTS = 5;
-
-    while (cardQueue.length < QUEUE_TARGET_SIZE && attempts < MAX_ATTEMPTS) {
-        attempts++;
-        console.log(`🔄 Queue Attempt ${attempts}/${MAX_ATTEMPTS}`);
-        const card = await fetchSingleNASACard();
+    let tries = 0;
+    while (queue.length < 4 && tries < 15) {
+        tries++;
+        const card = await fetchImage();
         if (card) {
-            cardQueue.push(card);
-            console.log(`📥 Card added to queue. Current queue size: ${cardQueue.length}`);
-            if (ui.loader && !ui.loader.classList.contains('hidden')){
-                console.log("🚀 Starting game loop!")
-                ui.loader.style.display = 'none';
-                if (!currentCard) loadNextRound();
+            queue.push(card);
+
+            if (isWaitingForNext){
+               loadNextRound();
             }
         }
-    }
-
-    if(attempts >= MAX_ATTEMPTS && cardQueue.length === 0){
-        console.error("💀 Hit max attempts and queue is empty.");
-        ui.loader.innerHTML = "<div class='loader-text' style='color: var(--neon-red);'>NASA API CONNECTION FAILED. <br>Check console for details.</div>";
     }
     isFetching = false;
 }
 
 function loadNextRound() {
-    if (cardQueue.length === 0){
-        ui.loader.classList.remove('hidden');
-        ui.loader.style.display = 'flex';
-        fillCardQueue();
+    modal.style.display = 'none';
+
+    if (queue.length === 0){
+        loader.style.display = 'flex';
+        isWaitngForNext = true;
+        fillQueue();
         return;
     }
 
-    currentCard = cardQueue.shift();
-    fillCardQueue();
+    isWaitingForNext = false;
+    loader.style.display = 'none';
+    currentCard = queue.shift();
+    fillQueue();   
 
-    const TACTICAL_PROMPTS = [
-        "METADATA ENCRYPTED. Visual analysis required.",
-        "WARNING: Unknown spectral signature detected.",
-        "ANALYZING: Surface reflectance and thermal anomalies.",
-        "TELEMETRY SCRAMBLED. Awaiting manual classification."
-    ];
-
-    ui.image.src = currentCard.imageUrl;
-    ui.clueText.textContent = TACTICAL_PROMPTS[Math.floor(Math.random() * TACTICAL_PROMPTS.length)];
-    ui.revealModal.style.display = 'none';
-    ui.btnEarth.disabled = false;
-    ui.btnAlien.disabled = false;
+    image.src = currentCard.imageUrl;
+    btnEarth.disabled = false;
+    btnAlien.disabled = false;
 
     startTimer();
 }
 
 function startTimer() {
-    clearInterval(timerInterval);
+    clearInterval(timer);
     timeLeft = 7;
-    updateTimerUI();
+    timerText.textContent = "7s";
+    timerBar.style.width = "100%";
 
-    timerInterval = setInterval(() => {
+    timer = setInterval(() => {
         timeLeft -= 0.1;
+        timerText.textContent = Math.ceil(timeLeft) + "s";
+        timerBar.style.width = Math.max(0, (timeLeft / 7) * 100) + "%";
+
         if (timeLeft <= 0) {
-            clearInterval(timerInterval);
-            handleTimeout();
-        } else {
-            updateTimerUI();
-        }
+            clearInterval(timer);
+            handleGuess(null);
+        } 
     }, 100);
 }
 
-function updateTimerUI() {
-    ui.timerText.textContent = `${Math.ceil(timeLeft)}s`;
-    const pct = (timeLeft / 7) *100;
-    ui.timerBar.style.width = `${Math.max(0, pct)}%`;
-}
+function handleGuess(guessedEarth) {
+    clearInterval(timer);
+    btnEarth.disabled = true;
+    btnAlien.disabled = true;
 
-function submitAnswer(guessedEarth) {
-    clearInterval(timerInterval);
-    ui.btnEarth.disabled = true;
-    ui.btnAlien.disabled = true;
-
-    const isCorrect = guessedEarth === currentCard.isEarth;
-
-    if (isCorrect) {
+    if (guessedEarth === currentCard.isEarth){
         currentScore++;
-        if (currentScore > highScore) {
+        if (currentScore > highScore){
             highScore = currentScore;
-            localStorage.setItem('alien_earth_high_score', highScore.toString());
+            localStorage.setItem('alien_earth_high_score', highScore);
         }
-        ui.revealTitle.textContent = "🎯 CORRECT READ!";
-        ui.revealTitle.className = "reveal-title text-success";
-    } else {
+        revealTitle.textContent = "🎯 CORRECT READ!"
+        revealTitle.className = "reveal-title text-success";
+    }else {
         currentScore = 0;
-        ui.revealTitle.textContent = "❌ TARGET MISIDENTIFIED";
-        ui.revealTitle.className = "reveal-title text-danger";
+        revealTitle.textContent = guessedEarth === null ? "⏰ SENSOR TIMEOUT!" : "❌ TARGET MISIDENTIFIED";
+        revealTitle.className = "reveal-title text-danger";
     }
 
-    updateScoreUI();
-    showReveal();
+    scoreText.textContent = currentScore;
+    highScoreText.textContent = highScore;
+
+    revealSensor.textContent = "Sensor: " + currentCard.sensor;
+    revealDesc.textContent = currentCard.title;
+    modal.style.display = 'flex';
 }
 
-function handleTimeout() {
-    ui.btnEarth.disabled = true;
-    ui.btnAlien.disabled = true;
-    currentScore = 0;
-    updateScoreUI();
 
-    ui.revealTitle.textContent = "⏰ SENSOR TIMEOUT!";
-    ui.revealTitle.className = "reveal-title text-danger";
-    showReveal();
-}
+btnEarth.addEventListener('click', () => handleGuess(true));
+btnAlien.addEventListener('click', () => handleGuess(false));
+btnNext.addEventListener('click', loadNextRound);
 
-function showReveal() {
-    ui.revealSensor.textContent = `Sensor / Platform: ${currentCard.sensor}`;
-    ui.revealDesc.textContent = `${currentCard.title}: ${currentCard.fullDescription}`;
-    ui.revealModal.style.display = 'flex';
-}
+btnStart.addEventListener('click', () => {
+    btnStart.style.pointerEvents = 'none';
+    btnStart.textContent = "FUELING...";
+    btnStart.style.color = "#ffaa00";
+    btnStart.style.textShadow="0 0 20px #ffaa00";
+    btnStart.style.animation = "none";
 
-function updateScoreUI(){
-    ui.scoreText.textContent = currentScore;
-    ui.highScoreText.textContent = highScore;
-}
+    setTimeout(() => {
+        btnStart.textContent = "IGNITION!";
+        btnStart.style.color = "#ff3300";
+        btnStart.style.textShadow="0 0 30px #ff3300";
 
-ui.btnEarth.addEventListener('click', () => submitAnswer(true));
-ui.btnAlien.addEventListener('click', () => submitAnswer(false));
-ui.btnNext.addEventListener('click', () => loadNextRound());
+        rocket.classList.add('launch');
 
-updateScoreUI();
-fillCardQueue();
+        setTimeout(()=>{
+            homeScreen.classList.add('fade-out');
+
+            setTimeout(()=>{
+                homeScreen.style.display = 'none';
+                loadNextRound();
+            }, 500);
+        }, 1200);
+    }, 600);
+});
+
+scoreText.textContent = currentScore;
+highScoreText.textContent = highScore;
+fillQueue();
