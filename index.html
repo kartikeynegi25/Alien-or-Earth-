@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Alien or Earth? | ARSET Terminal</title>
+    <title>Alien or Earth? | ARSET</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -16,37 +16,44 @@
             <img src="https://www.logo.wine/a/logo/NASA/NASA-Logo.wine.svg" alt="NASA Logo" class="nasa-logo">
         </div>
 
-        <div class="glitch-title">ALIEN<br>OR<br>EARTH?</div>
-        <p class="subtitle">CLASSIFIED SENSOR TRAINING</p>
-
-        <div class="briefing">
-            <p class="blink-text">> MISSION LAUNCHING...</p>
-            <p>> 7 SECONDS PER SCAN.</p>
-            <p>> IDENTIFY PLANETARY ORIGIN.</p>
+        <div class ="title-container">
+            <span class="text-alien">ALIEN</span>
+            <span class="text-or">OR</span>
+            <span class="text-earth">EARTH?</span>
         </div>
 
-        <button id="btn-start" class="btn btn-start">LAUNCH   o➔</button>
+        <p class="subtitle">NASA SATELLITE QUIZ</p>
+
+        <div class="briefing">
+            <p class="blink-text">> CONNECTING TO NASA...</p>
+            <p>> 7 SECONDS PER SCAN.</p>
+            <p>> DON'T BLINK.</p>
+        </div>
+
+        <button id="btn-start" class="btn btn-start">LAUNCH</button>
 
         <img id="rocket" src="rocket.png" class="rocket" alt="Launch">
     </div>
 
     <div id = "loading-overlay" class="overlay">
-        <div class="loader-text">ESTABLISHING SENSOR UPLINK...</div>
+        <div class="loader-text">GRABBING NASA DATA...</div>
     </div>
 
     <!--Main game-->
     <header class="hud-header">
-        <div class="stat-box">STREAK: <span id="score-val" class="neon-text">0</span></div>
         <div class="timer-container">
             <div id="timer-bar" class="timer-bar"></div>
             <span id="timer-text" class="timer-text">7s</span>
         </div>
-        <div class="stat-box">MAX: <span id="high-score-val" class="neon-text">0</span></div>
+        <div class="scores-group">
+            <div class="stat-box">SCORE: <span id="score-val" class="neon-text">0</span></div>
+            <div class="stat-box">MAX: <span id="high-score-val" class="neon-text">0</span></div>
+        </div>
     </header>
 
     <main class="game-board">
         <div class="image-frame">
-            <img id="game-image" src="" alt="Remote Sensing Feed">
+            <img id="game-image" src="" alt="Satellite Feed">
         </div>
 
         <div class="controls">
@@ -55,14 +62,21 @@
         </div>
     </main>
 
+    <!-- After Guessing-->
     <div id="reveal-modal" class="modal" style="display: none;">
         <div class="modal-content">
             <h2 id="reveal-title">TARGET IDENTIFIED</h2>
-            <div class="arset-flex-box">
+            <p id="reveal-score" class="reveal-score"></p>
+
+            <div class="data-box">
                 <h3 id="reveal-sensor" class="neon-text"></h3>
                 <p id="reveal-desc"></p>
             </div>
-            <button id="btn-next" class="btn btn-next">INITIATE NEXT MISSION ➔</button>
+
+            <div class="modal-buttons">
+                <button id="btn-next" class="btn btn-next">INITIATE NEXT MISSION ➔</button>
+                <button id="btn-home" class="btn-home">« RETURN TO BASE</button>
+            </div>
         </div>
     </div>
 
