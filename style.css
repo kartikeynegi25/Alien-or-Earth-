@@ -247,7 +247,8 @@ body {
     display: flex;
     gap: 15px;
     height: 60px;
-    margin-top: auto;
+    margin-top: 25px;
+    margin-bottom: 30px;
 }
 
 .btn{

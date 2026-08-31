@@ -12,6 +12,7 @@ const queries = {
 };
 
 let queue = [];
+const seenImages = new Set();
 let currentPic = null;
 let score = 0;
 let maxScore = parseInt(localStorage.getItem('alien_earth_high_score') || '0', 10);
@@ -63,10 +64,15 @@ async function fetchImage() {
     const rawText = (title + " " + desc).toLowerCase();
 
     // remove rockets, diagrams, and people
-    const badWords = ["rocket", "launch", "portrait", "team", "engineer", "diagram", "artwork", "illustration", "facility", "telescope", "model", "concept"];
+    const badWords = ["rocket", "launch", "portrait", "team", "engineer", "diagram", "artwork", "illustration", "facility", "telescope", "model", "concept", "airplane", "aircraft", "aviation", "window", "wing", "drone", "flight", "animation"];
     if (badWords.some(word => rawText.includes(word))) {
       return null;
     }
+
+    if(seenImages.has(imageUrl)) {
+        return null;
+    }
+    seenImages.add(imageUrl);
 
     // download the image in the background
     await new Promise(resolve => {
