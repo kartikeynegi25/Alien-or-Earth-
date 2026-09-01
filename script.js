@@ -11,15 +11,13 @@ const queries = {
   ]
 };
 
-let queue = [];
 const seenImages = new Set();
 let currentPic = null;
+let nextPic = null;
 let score = 0;
 let maxScore = parseInt(localStorage.getItem('alien_earth_high_score') || '0', 10);
 let timer;
 let timeLeft = 7;
-let isFetching = false;
-let needsImageNow = false;
 
 const homeScreen = document.getElementById('home-screen');
 const btnStart = document.getElementById('btn-start');
@@ -40,7 +38,7 @@ const btnHome = document.getElementById('btn-home');
 const loader = document.getElementById('loading-overlay');
 const rocket = document.getElementById('rocket');
 
-// fetch an image from the nasa api
+// Fetch a single image from the NASA API
 async function fetchImage() {
   const isEarth = Math.random() > 0.5;
   const terms = isEarth ? queries.earth : queries.alien;
@@ -51,8 +49,14 @@ async function fetchImage() {
     const data = await res.json();
     const items = data?.collection?.items || [];
 
-    // filter out junk responses
-    const validItems = items.filter(item => item.links && item.links.length > 0 && item.data && item.data[0]);
+    // Basic loop to filter out junk responses
+    let validItems = [];
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].links && items[i].links.length > 0 && items[i].data && items[i].data[0]) {
+        validItems.push(items[i]);
+      }
+    }
+
     if (validItems.length === 0) return null;
 
     const pick = validItems[Math.floor(Math.random() * validItems.length)];
@@ -63,25 +67,29 @@ async function fetchImage() {
 
     const rawText = (title + " " + desc).toLowerCase();
 
-    // remove rockets, diagrams, and people
-    const badWords = ["rocket", "launch", "portrait", "team", "engineer", "diagram", "artwork", "illustration", "facility", "telescope", "model", "concept", "airplane", "aircraft", "aviation", "window", "wing", "drone", "flight", "animation"];
-    if (badWords.some(word => rawText.includes(word))) {
+    // Basic loop to check for bad words instead of advanced array methods
+    const badWords = [
+      "rocket", "launch", "portrait", "team", "engineer", "diagram", 
+      "artwork", "illustration", "facility", "telescope", "model", "concept", 
+      "airplane", "aircraft", "aviation", "window", "wing", "drone", "flight", "animation"
+    ];
+    
+    let hasBadWord = false;
+    for (let i = 0; i < badWords.length; i++) {
+      if (rawText.includes(badWords[i])) {
+        hasBadWord = true;
+        break;
+      }
+    }
+
+    if (hasBadWord) {
       return null;
     }
 
-    if(seenImages.has(imageUrl)) {
-        return null;
+    if (seenImages.has(imageUrl)) {
+      return null;
     }
     seenImages.add(imageUrl);
-
-    // download the image in the background
-    await new Promise(resolve => {
-      const img = new Image();
-      const timeout = setTimeout(() => resolve(imageUrl), 4000);
-      img.onload = () => { clearTimeout(timeout); resolve(imageUrl); };
-      img.onerror = () => { clearTimeout(timeout); resolve(imageUrl); };
-      img.src = imageUrl;
-    });
 
     return {
       imageUrl: imageUrl,
@@ -96,54 +104,43 @@ async function fetchImage() {
   }
 }
 
-// keep a buffer of 4 images so players never wait
-async function preloadImages() {
-  if (isFetching) return;
-  isFetching = true;
-
-  let tries = 0;
-  while (queue.length < 4 && tries < 30) {
-    tries++;
-    const card = await fetchImage();
-    if (card) {
-      queue.push(card);
-
-      // if the player is stuck staring at the loading screen, save them
-      if (needsImageNow) {
-        needsImageNow = false;
-        playRound();
-      }
+// Start the next level
+async function getValidImage(){
+    let card = null;
+    while (!card){
+        card = await fetchImage();
     }
-  }
-  isFetching = false;
-
-  if (needsImageNow && queue.length === 0) {
-    setTimeout(preloadImages, 1000);
-  }
+    return card;
 }
 
-// start the next level
-function playRound() {
+async function playRound() {
   modal.style.display = 'none';
+  loader.style.display = 'flex'; // Show loading screen
+  btnEarth.disabled = true;
+  btnAlien.disabled = true;
 
-  // out of images? show the loader and beg the api for more
-  if (queue.length === 0) {
+  // Keep trying to fetch until we get a good image
+
+  if (!nextPic){
     loader.style.display = 'flex';
-    needsImageNow = true; 
-    preloadImages();
-    return;
+    nextPic = await getValidImage();
   }
 
-  needsImageNow = false;
-  loader.style.display = 'none';
-  currentPic = queue.shift();
-  preloadImages();
-
+  currentPic = nextPic;
   image.src = currentPic.imageUrl;
-  btnEarth.disabled = false;
-  btnAlien.disabled = false;
+  nextPic = null;
 
-  runTimer();
+  // Wait for the image to actually load on the screen before starting the timer
+  image.onload = function() {
+    loader.style.display = 'none';
+    btnEarth.disabled = false;
+    btnAlien.disabled = false;
+    runTimer();
+
+   getValidImage().then(function(card) {
+        nextPic = card;
+    });
+  };
 }
 
 function runTimer() {
@@ -190,6 +187,7 @@ function checkAnswer(guess) {
 
   scoreText.textContent = score;
   maxScoreText.textContent = maxScore;
+  getValidImage().then(card => nextPic = card);
 
   revealSensor.textContent = "Camera: " + currentPic.sensor;
   revealDesc.textContent = currentPic.title;
@@ -204,23 +202,15 @@ btnStart.addEventListener('click', () => {
   btnStart.style.pointerEvents = 'none';
   btnStart.textContent = "FUELING...";
   btnStart.style.color = "#ffaa00";
-  btnStart.style.textShadow = "0 0 20px #ffaa00";
-  btnStart.style.animation = "none";
 
   setTimeout(() => {
     btnStart.textContent = "IGNITION!";
     btnStart.style.color = "#ff3300";
-    btnStart.style.textShadow = "0 0 30px #ff3300";
-
     rocket.classList.add('launch');
 
     setTimeout(() => {
-      homeScreen.classList.add('fade-out');
-
-      setTimeout(() => {
-        homeScreen.style.display = 'none';
-        playRound();
-      }, 500);
+      homeScreen.style.display = 'none';
+      playRound();
     }, 1200);
   }, 600);
 });
@@ -232,14 +222,12 @@ btnHome.addEventListener('click', () => {
   modal.style.display = 'none';
 
   btnStart.removeAttribute('style');
+  btnStart.style.pointerEvents = 'auto';
   btnStart.textContent = "LAUNCH"; 
 
   rocket.classList.remove('launch');
-
-  homeScreen.classList.remove('fade-out');
   homeScreen.style.display = 'flex';
 });
 
 scoreText.textContent = score;
 maxScoreText.textContent = maxScore;
-preloadImages();
